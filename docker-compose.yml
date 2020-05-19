@@ -1,0 +1,72 @@
+version: "3"
+services:
+    debian-base:
+        image: debian-base
+        build:
+            context: https://github.com/csepely/debian-base.git
+    syslog-ng:
+        image: debian-syslog-ng
+        depends_on:
+            - debian-base
+        build:
+            context: https://github.com/csepely/debian-syslog-ng.git
+        ports:
+            - "514:514/udp"
+            - "601:601"
+        volumes:
+            - "syslog-logs:/var/log/remote"
+            - "syslog-etc:/etc/syslog-ng"
+        restart: always
+    squid:
+        image: archlinux/squid
+        depends_on:
+            - syslog-ng
+        build:
+            context: https://github.com/csepely/archlinux-squid.git
+        ports:
+            - "3128:3128"
+        volumes:
+            - "squid-etc:/etc/squid/"
+        logging:
+            driver: syslog
+            options:
+                syslog-address: "udp://localhost"
+                syslog-format: rfc5424
+                tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+                mode: non-blocking
+        restart: always
+    nginx:
+        image: debian-nginx
+        depends_on:
+            - debian-base
+            - syslog-ng
+        build:
+            context: https://github.com/csepely/debian-nginx.git
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - "nginx-etc:/etc/nginx"
+            - "nginx-certbot:/etc/certbot"
+            - "nginx-letsencrypt:/etc/letsencrypt"
+            - "nginx-www:/var/www/html"
+            - "nginx-var-lib-letsencrypt:/var/lib/letsencrypt"
+            - "nginx-log-letsencrypt:/var/log/letsencrypt"
+        logging:
+            driver: syslog
+            options:
+                syslog-address: "udp://localhost"
+                syslog-format: rfc5424
+                tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+                mode: non-blocking
+        restart: always
+volumes:
+    syslog-logs:
+    syslog-etc:
+    squid-etc:
+    nginx-etc:
+    nginx-certbot:
+    nginx-letsencrypt:
+    nginx-www:
+    nginx-var-lib-letsencrypt:
+    nginx-log-letsencrypt:

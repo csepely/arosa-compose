@@ -1,0 +1,62 @@
+version: "3"
+services:
+    debian-base:
+        image: debian-base
+        build:
+            context: https://github.com/csepely/debian-base.git
+    syslog-ng:
+        image: debian-syslog-ng
+        depends_on:
+            - debian-base
+        build:
+            context: https://github.com/csepely/debian-syslog-ng.git
+        ports:
+            - "514:514/udp"
+            - "601:601"
+        volumes:
+            - "./data/syslog-ng/var/log/remote:/var/log/remote"
+            - "./data/syslog-ng/etc/syslog-ng/syslog-ng.conf:/etc/syslog-ng/syslog-ng.conf"
+        restart: always
+    squid:
+        image: archlinux/squid
+        depends_on:
+            - syslog-ng
+        build:
+            context: https://github.com/csepely/archlinux-squid.git
+        ports:
+            - "3128:3128"
+        volumes:
+            - "./data/squid/conf/cert:/etc/squid/cert"
+        logging:
+            driver: syslog
+            options:
+                syslog-address: "udp://localhost"
+                syslog-format: rfc5424
+                tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+                mode: non-blocking
+        restart: always
+    nginx:
+        image: debian-nginx
+        depends_on:
+            - debian-base
+            - syslog-ng
+        build:
+            context: https://github.com/csepely/debian-nginx.git
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - "./data/nginx/etc/nginx:/etc/nginx"
+            - "./data/nginx/etc/certbot:/etc/certbot"
+            - "./data/nginx/etc/letsencrypt:/etc/letsencrypt"
+            - "./data/nginx/var/www/html:/var/www/html"
+            - "./data/nginx/var/lib/letsencrypt:/var/lib/letsencrypt"
+            - "./data/nginx/var/log/letsencrypt:/var/log/letsencrypt"
+        logging:
+            driver: syslog
+            options:
+                syslog-address: "udp://localhost"
+                syslog-format: rfc5424
+                tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+                mode: non-blocking
+        restart: always
