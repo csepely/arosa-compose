@@ -27,6 +27,7 @@ services:
             - "3128:3128"
         volumes:
             - "squid-etc:/etc/squid/"
+            - "squid-certs:/etc/squid/cert/"
         logging:
             driver: syslog
             options:
@@ -40,6 +41,7 @@ services:
         depends_on:
             - debian-base
             - syslog-ng
+            - squid
         build:
             context: https://github.com/csepely/debian-nginx.git
         ports:
@@ -52,6 +54,7 @@ services:
             - "nginx-www:/var/www/html"
             - "nginx-var-lib-letsencrypt:/var/lib/letsencrypt"
             - "nginx-log-letsencrypt:/var/log/letsencrypt"
+            - "squid-certs:/var/www/html/certs/"
         logging:
             driver: syslog
             options:
@@ -64,6 +67,7 @@ volumes:
     syslog-logs:
     syslog-etc:
     squid-etc:
+    squid-certs:
     nginx-etc:
     nginx-certbot:
     nginx-letsencrypt:

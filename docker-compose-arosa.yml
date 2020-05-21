@@ -4,6 +4,9 @@ services:
         image: debian-base
         build:
             context: https://github.com/csepely/debian-base.git
+        networks:
+            logs-net:
+                ipv4_address: 172.90.238.10
     syslog-ng:
         image: debian-syslog-ng
         depends_on:
@@ -12,10 +15,14 @@ services:
             context: https://github.com/csepely/debian-syslog-ng.git
         ports:
             - "514:514/udp"
+            - "515:515/udp"
             - "601:601"
         volumes:
             - "./data/syslog-ng/var/log/remote:/var/log/remote"
             - "./data/syslog-ng/etc/syslog-ng/syslog-ng.conf:/etc/syslog-ng/syslog-ng.conf"
+        networks:
+            logs-net:
+                ipv4_address: 172.90.238.2
         restart: always
     squid:
         image: archlinux/squid
@@ -27,12 +34,15 @@ services:
             - "3128:3128"
         volumes:
             - "./data/squid/conf/cert:/etc/squid/cert"
+        networks:
+            logs-net:
+                ipv4_address: 172.90.238.3
         logging:
             driver: syslog
             options:
-                syslog-address: "udp://localhost"
+                syslog-address: "udp://localhost:515"
                 syslog-format: rfc5424
-                tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+                tag: "{{.Name}}/{{.ID}}"
                 mode: non-blocking
         restart: always
     nginx:
@@ -40,6 +50,7 @@ services:
         depends_on:
             - debian-base
             - syslog-ng
+            - squid
         build:
             context: https://github.com/csepely/debian-nginx.git
         ports:
@@ -52,11 +63,21 @@ services:
             - "./data/nginx/var/www/html:/var/www/html"
             - "./data/nginx/var/lib/letsencrypt:/var/lib/letsencrypt"
             - "./data/nginx/var/log/letsencrypt:/var/log/letsencrypt"
+            - "./data/squid/conf/cert/CA.der:/var/www/html/certs/CA.der"
+        networks:
+            logs-net:
+                ipv4_address: 172.90.238.4
         logging:
             driver: syslog
             options:
-                syslog-address: "udp://localhost"
+                syslog-address: "udp://localhost:515"
                 syslog-format: rfc5424
-                tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+                tag: "{{.Name}}/{{.ID}}"
                 mode: non-blocking
         restart: always
+networks:
+    logs-net:
+        ipam:
+            driver: default
+            config:
+                - subnet: "172.90.238.0/24"
